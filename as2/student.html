@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student - AutoShare</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="index.html">AutoShare</a>
+    </div>
+  </nav>
+
+  <div class="container py-5 auto-form">
+    <h2 class="text-center mb-4">Book an Auto</h2>
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <label for="origin" class="form-label">Origin</label>
+        <select id="origin" class="form-select gradient-input">
+          <option>LH</option>
+          <option>Main Building</option>
+          <option>Department Building</option>
+          <option>NLHC</option>
+          <option>ECLHC</option>
+          <option>Archi Building</option>
+          <option>MBH</option>
+          <option>ATM Circle</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label for="destination" class="form-label">Destination</label>
+        <select id="destination" class="form-select gradient-input">
+          <option>LH</option>
+          <option>Main Building</option>
+          <option>Department Building</option>
+          <option>NLHC</option>
+          <option>ECLHC</option>
+          <option>Archi Building</option>
+          <option>MBH</option>
+          <option>ATM Circle</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label for="rideTime" class="form-label">Select Ride Time</label>
+      <input type="time" id="rideTime" class="form-control gradient-input">
+    </div>
+
+    <div class="mb-3">
+      <label for="seats" class="form-label">Number of Seats Required</label>
+      <select id="seats" class="form-select gradient-input">
+        <option value="1">1 Seat</option>
+        <option value="2">2 Seats</option>
+        <option value="3">3 Seats</option>
+        <option value="4">4 Seats (Full Auto)</option>
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label for="name" class="form-label">Your Name</label>
+      <input type="text" id="name" class="form-control gradient-input" placeholder="Enter your name">
+    </div>
+
+    <button onclick="bookAuto()" class="btn btn-danger w-100 hover-glow">Book Now</button>
+
+    <!-- Countdown -->
+    <div id="countdownContainer" class="text-center mt-4" style="display: none;">
+      <h4 class="text-success">Booking Confirmed!</h4>
+      <p>Ride begins in <span id="countdown"></span> seconds...</p>
+    </div>
+
+    <h3 class="text-center mt-5">Autos Available Near You</h3>
+    <ul id="autoList" class="list-group mt-3">
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        steve - Location: LH | Returning: 6:30 PM | Seats Available: 2
+        <img src="th.jpg" alt="Rajeev's Photo" width="50" height="50" class="rounded-circle ms-2">
+      </li>
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        elon - Location: Main Building | Returning: 7:00 PM | Seats Available: 1
+        <img src="t_500x300.jpg" alt="Suresh's Photo" width="50" height="50" class="rounded-circle ms-2">
+      </li>
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        sunitha - Location: MBH | Returning: 5:45 PM | Seats Available: 3
+        <img src="sw.jpg" alt="Meena's Photo" width="50" height="50" class="rounded-circle ms-2">
+      </li>
+    </ul>
+  </div>
+
+  <!-- Script -->
+  <script src="./script.js"></script>
+</body>
+</html>
