@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Airport Runway & Gate Optimizer — Interactive Simulator</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root{
+      --accent:#0d6efd;
+      --muted:#f5f7fb;
+      --card:#ffffff;
+    }
+    body{background: linear-gradient(180deg, #eef6ff 0%, #ffffff 60%); font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;}
+    header{background: linear-gradient(90deg,#0d6efd22 0%, #6610f622 100%); padding:2rem 1rem}
+    .hero{max-width:1100px;margin:0 auto;color:#042a4a}
+    .glass{backdrop-filter: blur(6px); background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.6)); border-radius:18px; box-shadow: 0 8px 30px rgba(13,32,64,0.08);}
+    .feature-card{border-radius:14px}
+    .result-box{min-height:120px}
+    footer{padding:1.2rem 1rem; background:#0b2b4a; color:#fff}
+    @media (max-width:768px){ .hero{padding:0 0.5rem} }
+    .runway-img{height:160px; object-fit:cover; border-radius:10px}
+  </style>
+</head>
+<body>
+  <header class="mb-4">
+    <div class="hero container d-flex gap-3 align-items-center">
+      <img src="https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=120&q=60" alt="airport" class="rounded-3" style="width:92px;height:92px;object-fit:cover;box-shadow:0 6px 18px rgba(13,32,64,0.12)"/>
+      <div>
+        <h1 class="h3 mb-1">Airport Capacity & Queue Simulator</h1>
+        <p class="mb-0 text-muted">Enter land, traffic and service parameters to compute optimal runways & gates and estimate average delays using queuing theory.</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="p-3 glass">
+          <h2 class="h5 mb-3">Inputs</h2>
+          <form id="paramsForm" class="row g-3">
+            <div class="col-12">
+              <label class="form-label">1) Total available land (sq.m)</label>
+              <input required type="number" min="1" class="form-control" id="totalLand" value="200000">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">2) Avg passenger traffic per day (passengers/day)</label>
+              <input type="number" min="0" class="form-control" id="passengersPerDay" value="8000">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">(Optional) Avg passengers per flight</label>
+              <input type="number" min="1" class="form-control" id="paxPerFlight" placeholder="If provided, used to estimate flights/day (default 150)" value="150">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">3) Minimum land needed for airport building (sq.m)</label>
+              <input required type="number" min="0" class="form-control" id="buildingLand" value="20000">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">4) Minimum land reserved already for gates (sq.m)</label>
+              <input required type="number" min="0" class="form-control" id="reservedGatesLand" value="10000">
+            </div>
+
+            <div class="col-6">
+              <label class="form-label">5) Avg inter-arrival time of flights (minutes)</label>
+              <input required type="number" min="0.1" step="0.1" class="form-control" id="interArrivalMin" value="8">
+            </div>
+            <div class="col-6">
+              <label class="form-label">6) Avg gate occupation time per flight (minutes)</label>
+              <input required type="number" min="0.1" step="0.1" class="form-control" id="gateServiceMin" value="45">
+            </div>
+
+            <div class="col-6">
+              <label class="form-label">7) Avg runway service time per flight (minutes)</label>
+              <input required type="number" min="0.1" step="0.1" class="form-control" id="runwayServiceMin" value="10">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">8) Gate types — choose primary gate type</label>
+              <select id="gateType" class="form-select">
+                <option value="1000">Type A (Large) — 1000 sq.m per gate</option>
+                <option value="600">Type B (Medium) — 600 sq.m per gate</option>
+                <option value="300">Type C (Regional/Small) — 300 sq.m per gate</option>
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">9) Runway types — choose primary runway type</label>
+              <select id="runwayType" class="form-select">
+                <option value="25000">Type 1 (Heavy, long) — 25,000 sq.m per runway</option>
+                <option value="16000">Type 2 (Medium) — 16,000 sq.m per runway</option>
+                <option value="9000">Type 3 (Short, regional) — 9,000 sq.m per runway</option>
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">10) Safety buffer (% of land reserved for roads/taxing/green)</label>
+              <input type="number" min="0" max="90" class="form-control" id="safetyBuffer" value="12">
+            </div>
+
+            <div class="col-12 d-grid gap-2 d-sm-flex justify-content-sm-end">
+              <button type="button" id="runBtn" class="btn btn-primary">Calculate optimal layout & queues</button>
+              <button type="button" id="resetBtn" class="btn btn-outline-secondary">Reset</button>
+            </div>
+          </form>
+
+          <hr>
+          <div>
+            <h3 class="h6">Quick tips</h3>
+            <ul class="small text-muted">
+              <li>Inter-arrival in minutes means average time between two arriving flights.</li>
+              <li>Gate service time includes turnaround (disembark, cleaning, boarding).</li>
+              <li>The tool uses Erlang-C (M/M/c) approximation to estimate wait times under simple queuing assumptions.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-3 glass p-3">
+          <h4 class="h6">Scenarios</h4>
+          <p class="small text-muted">Try different gate/runway types and safety buffer values to see trade-offs between land use and delays.</p>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary" id="example1">Busy Hub (short intervals)</button>
+            <button class="btn btn-sm btn-outline-success" id="example2">Regional (larger gates)</button>
+            <button class="btn btn-sm btn-outline-warning" id="example3">Constrained Land</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <div class="glass p-3 feature-card">
+          <h2 class="h5 mb-3">Results</h2>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="p-3 result-box border rounded">
+                <h5 class="mb-1">Optimal proposal</h5>
+                <div id="proposal" class="small text-muted">Run the calculator to see recommendations.</div>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="p-3 result-box border rounded">
+                <h5 class="mb-1">Land usage</h5>
+                <div id="landUsage" class="small text-muted">—</div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="p-3 border rounded">
+                <h5 class="mb-1">Queue analysis (Erlang-C)</h5>
+                <div id="queueAnalysis" class="small text-muted">—</div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="p-3 border rounded">
+                <h5 class="mb-1">Effectiveness comments</h5>
+                <div id="comments" class="small text-muted">—</div>
+              </div>
+            </div>
+
+            <div class="col-12 mt-2">
+              <canvas id="usageChart" style="width:100%;height:240px"></canvas>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="mt-3 glass p-3">
+          <h2 class="h6">Visual</h2>
+          <div class="row gy-2">
+            <div class="col-md-6">
+              <img src="https://images.unsplash.com/photo-1504196606672-aef5c9cefc92?auto=format&fit=crop&w=800&q=60" class="runway-img" alt="runway">
+            </div>
+            <div class="col-md-6">
+              <img src="https://images.unsplash.com/photo-1517341721392-3b28d9f0f6cc?auto=format&fit=crop&w=800&q=60" class="runway-img" alt="terminal">
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <footer class="mt-4">
+    <div class="container d-flex justify-content-between align-items-center">
+      <div>Made with ✈️ · Airport Simulator</div>
+      <div class="text-muted small">Erlang-C queuing · Land-optimization heuristic</div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // -- Utility math helpers
+    function factorial(n){ if(n<0) return NaN; let r=1; for(let i=1;i<=n;i++) r*=i; return r; }
+
+    // Erlang C helper for M/M/c
+    function erlangC(lambda, mu, c){
+      // lambda: arrival rate (per hour), mu: service rate per server (per hour), c: servers
+      const rho = lambda / (c * mu);
+      if(rho >= 1) return {Wq: Infinity, rho};
+      // compute P0
+      let sum = 0;
+      for(let n=0;n<=c-1;n++){
+        sum += Math.pow(lambda/mu, n) / factorial(n);
+      }
+      const last = Math.pow(lambda/mu, c) / (factorial(c) * (1 - rho));
+      const P0 = 1 / (sum + last);
+      const Pc = last * P0; // probability that an arrival finds all servers busy
+      const Wq = (Pc * (1/(c*mu))) / (1 - rho); // average waiting time in queue (hours)
+      const W = Wq + 1/mu;
+      return {Wq, W, P0, Pc, rho};
+    }
+
+    // brute-force land allocation search
+    function searchOptimal(totalLand, buildingLand, safetyBufferPct, gateLandUnit, runwayLandUnit, reservedGatesLand){
+      const safetyReserve = totalLand * (safetyBufferPct/100);
+      const available = Math.max(0, totalLand - buildingLand - safetyReserve);
+      // we assume some land is already reserved for gates; subtract it from available if desired
+      const availableAfterReserved = Math.max(0, available - reservedGatesLand);
+
+      const maxGates = Math.floor((availableAfterReserved) / gateLandUnit);
+      const maxRunways = Math.floor((availableAfterReserved) / runwayLandUnit);
+
+      // search feasible combos for gates and runways where combined land used <= availableAfterReserved
+      let best = null;
+      for(let g=1; g<=Math.max(1, maxGates); g++){
+        for(let r=1; r<=Math.max(1, maxRunways); r++){
+          const landUsed = g*gateLandUnit + r*runwayLandUnit;
+          if(landUsed <= availableAfterReserved){
+            // score: more gates+runways better but penalize imbalance and underutilization
+            const score = g*1.2 + r*1.0 - Math.abs(g - 4)*0.05 - Math.abs(r - 2)*0.08;
+            if(!best || score > best.score){ best = {g, r, landUsed, score}; }
+          }
+        }
+      }
+
+      if(!best){
+        // if none fit together, try to fit only gates or only runways
+        const onlyG = {g: Math.floor((availableAfterReserved)/gateLandUnit), r:0, landUsed: Math.floor((availableAfterReserved)/gateLandUnit)*gateLandUnit, score:100};
+        const onlyR = {g:0, r: Math.floor((availableAfterReserved)/runwayLandUnit), landUsed: Math.floor((availableAfterReserved)/runwayLandUnit)*runwayLandUnit, score:90};
+        best = onlyG.landUsed >= onlyR.landUsed ? onlyG : onlyR;
+      }
+      return {available, safetyReserve, availableAfterReserved, best};
+    }
+
+    // estimate flights/hour from either interarrival or passenger/day + pax per flight
+    function estimateLambda(interArrivalMin, passengersPerDay, paxPerFlight){
+      if(interArrivalMin && interArrivalMin>0){
+        const lambda_per_hour = 60 / interArrivalMin; // flights per hour
+        return {method:'interarrival', lambda: lambda_per_hour};
+      }
+      if(passengersPerDay && paxPerFlight && paxPerFlight>0){
+        const flightsPerDay = passengersPerDay / paxPerFlight;
+        const lambda_per_hour = flightsPerDay / 24;
+        return {method:'pax', lambda: lambda_per_hour};
+      }
+      return {method:'unknown', lambda: 0.1};
+    }
+
+    // main compute handler
+    document.getElementById('runBtn').addEventListener('click', ()=>{
+      // read inputs
+      const totalLand = parseFloat(document.getElementById('totalLand').value) || 0;
+      const passengersPerDay = parseFloat(document.getElementById('passengersPerDay').value) || 0;
+      const paxPerFlight = parseFloat(document.getElementById('paxPerFlight').value) || 150;
+      const buildingLand = parseFloat(document.getElementById('buildingLand').value) || 0;
+      const reservedGatesLand = parseFloat(document.getElementById('reservedGatesLand').value) || 0;
+      const interArrivalMin = parseFloat(document.getElementById('interArrivalMin').value) || 10;
+      const gateServiceMin = parseFloat(document.getElementById('gateServiceMin').value) || 40;
+      const runwayServiceMin = parseFloat(document.getElementById('runwayServiceMin').value) || 8;
+      const gateLandUnit = parseFloat(document.getElementById('gateType').value);
+      const runwayLandUnit = parseFloat(document.getElementById('runwayType').value);
+      const safetyBuffer = parseFloat(document.getElementById('safetyBuffer').value) || 10;
+
+      // estimate arrival rate
+      const est = estimateLambda(interArrivalMin, passengersPerDay, paxPerFlight);
+      const lambda = est.lambda; // flights per hour
+      const mu_gate = 60 / gateServiceMin; // service per hour per gate
+      const mu_runway = 60 / runwayServiceMin; // service per hour per runway
+
+      const search = searchOptimal(totalLand, buildingLand, safetyBuffer, gateLandUnit, runwayLandUnit, reservedGatesLand);
+      const best = search.best;
+
+      // Evaluate queue performance for found combo and some nearby alternatives
+      const combos = [];
+      const maxG = Math.max(1, Math.floor((search.availableAfterReserved)/gateLandUnit));
+      const maxR = Math.max(1, Math.floor((search.availableAfterReserved)/runwayLandUnit));
+
+      // consider neighbours around best
+      const gStart = Math.max(1, Math.min(best.g-3, maxG));
+      const rStart = Math.max(1, Math.min(best.r-3, maxR));
+
+      for(let g=Math.max(1,best.g-3); g<=Math.min(maxG,best.g+3); g++){
+        for(let r=Math.max(1,best.r-3); r<=Math.min(maxR,best.r+3); r++){
+          const landUsed = g*gateLandUnit + r*runwayLandUnit;
+          if(landUsed <= search.availableAfterReserved){
+            // compute Erlang-C for gate and runway
+            const eGate = erlangC(lambda, mu_gate, g);
+            const eRunway = erlangC(lambda, mu_runway, r);
+            combos.push({g, r, landUsed, eGate, eRunway});
+          }
+        }
+      }
+
+      // pick best combo by minimizing sum of Wq (weighted) and maximizing land usage
+      combos.sort((a,b)=>{
+        const wa = (isFinite(a.eGate.Wq)?a.eGate.Wq:1000) + 0.6*(isFinite(a.eRunway.Wq)?a.eRunway.Wq:1000) + (search.availableAfterReserved - a.landUsed)/10000;
+        const wb = (isFinite(b.eGate.Wq)?b.eGate.Wq:1000) + 0.6*(isFinite(b.eRunway.Wq)?b.eRunway.Wq:1000) + (search.availableAfterReserved - b.landUsed)/10000;
+        return wa - wb;
+      });
+
+      const bestCombo = combos[0] || best;
+
+      // prepare outputs
+      const proposalEl = document.getElementById('proposal');
+      proposalEl.innerHTML = `<strong>Recommended:</strong> <span class='fw-semibold'>${bestCombo.g}</span> gates (type unit ${gateLandUnit} m²), <span class='fw-semibold'>${bestCombo.r}</span> runways (type unit ${runwayLandUnit} m²).`;
+
+      const landUsageEl = document.getElementById('landUsage');
+      landUsageEl.innerHTML = `Available land after building & safety: <strong>${Math.round(search.availableAfterReserved).toLocaleString()}</strong> m².<br>Planned land used: <strong>${Math.round(bestCombo.landUsed).toLocaleString()}</strong> m² (${Math.round(100*bestCombo.landUsed/search.availableAfterReserved)}% of available).`;
+
+      // queue analysis
+      const qEl = document.getElementById('queueAnalysis');
+      const gateWq = bestCombo.eGate.Wq; // hours
+      const runwayWq = bestCombo.eRunway.Wq;
+
+      function h2min(h){ if(!isFinite(h)) return '∞'; return (h*60).toFixed(1) + ' min'; }
+      qEl.innerHTML = `<div>Arrival rate λ = <strong>${lambda.toFixed(2)}</strong> flights/hr (est. method: ${est.method}).</div>
+                       <div>Gate service μ = <strong>${mu_gate.toFixed(2)}</strong> per hr (avg ${gateServiceMin} min).</div>
+                       <div>Runway service μ = <strong>${mu_runway.toFixed(2)}</strong> per hr (avg ${runwayServiceMin} min).</div>
+                       <hr>
+                       <div>Estimated average waiting time in queue (gates): <strong>${h2min(gateWq)}</strong>.</div>
+                       <div>Estimated average waiting time in queue (runways): <strong>${h2min(runwayWq)}</strong>.</div>
+                       <div class='text-muted small mt-2'>Wq computed with Erlang-C (M/M/c). If λ≥c·μ, queue grows unbounded (shown as ∞).</div>`;
+
+      // comments
+      const commentsEl = document.getElementById('comments');
+      let comments = [];
+      if(!isFinite(gateWq) || !isFinite(runwayWq)){
+        comments.push('<span class="text-danger">System unstable:</span> arrival rate exceeds service capacity — add servers or reduce demand.');
+      } else {
+        if(gateWq*60 < 15) comments.push('Excellent gate capacity — minimal ground delays.');
+        else if(gateWq*60 < 40) comments.push('Acceptable gate delays; consider a small increase in gates for buffer.');
+        else comments.push('Significant gate delays — increase gate count or reduce turnaround time to improve performance.');
+
+        if(runwayWq*60 < 2) comments.push('Runway capacity is very good; low airborne wait/holding times.');
+        else if(runwayWq*60 < 6) comments.push('Runway delays moderate; optimize sequencing or add a runway.');
+        else comments.push('Runway delays high — consider adding runway(s) or improving slot scheduling.');
+      }
+
+      // land usage recommendation
+      if(bestCombo.landUsed/search.availableAfterReserved > 0.85) comments.push('High land utilization — limited reserve space for future expansion.');
+      else if(bestCombo.landUsed/search.availableAfterReserved < 0.45) comments.push('Low land utilization — potential to add capacity or allocate space to cargo/other uses.');
+
+      commentsEl.innerHTML = comments.map(c=>`<div>${c}</div>`).join('');
+
+      // chart
+      renderChart(bestCombo, search.availableAfterReserved, gateLandUnit, runwayLandUnit);
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', ()=> location.reload());
+
+    // scenario buttons
+    document.getElementById('example1').addEventListener('click', ()=>{
+      document.getElementById('interArrivalMin').value = 4;
+      document.getElementById('gateServiceMin').value = 45;
+      document.getElementById('runwayServiceMin').value = 8;
+      document.getElementById('passengersPerDay').value = 30000;
+      document.getElementById('paxPerFlight').value = 180;
+    });
+    document.getElementById('example2').addEventListener('click', ()=>{
+      document.getElementById('interArrivalMin').value = 18;
+      document.getElementById('gateServiceMin').value = 35;
+      document.getElementById('runwayServiceMin').value = 12;
+      document.getElementById('passengersPerDay').value = 4000;
+      document.getElementById('paxPerFlight').value = 120;
+      document.getElementById('gateType').value = 1000;
+    });
+    document.getElementById('example3').addEventListener('click', ()=>{
+      document.getElementById('totalLand').value = 60000;
+      document.getElementById('safetyBuffer').value = 20;
+      document.getElementById('interArrivalMin').value = 12;
+      document.getElementById('gateServiceMin').value = 55;
+    });
+
+    // chart render
+    let chart=null;
+    function renderChart(combo, availableAfterReserved, gateLandUnit, runwayLandUnit){
+      const usedGates = combo.g * gateLandUnit;
+      const usedRunways = combo.r * runwayLandUnit;
+      const free = Math.max(0, availableAfterReserved - combo.landUsed);
+      const ctx = document.getElementById('usageChart').getContext('2d');
+      const data = {
+        labels:['Gates land','Runways land','Free available'],
+        datasets:[{label:'m²', data:[usedGates, usedRunways, free]}]
+      };
+      if(chart) chart.destroy();
+      chart = new Chart(ctx, {type:'bar', data:data, options:{responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}});
+    }
+  </script>
+</body>
+</html>
